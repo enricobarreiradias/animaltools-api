@@ -1,13 +1,11 @@
 module.exports = {
   pg: {
     animaltools: {
-      // Se estiveres a rodar o banco no teu PC (Docker), usa 'localhost'.
-      // Se estiveres a tentar conectar ao banco da AWS, põe o endereço da AWS aqui.
       host: 'localhost',
       port: 5432,
-      user: 'postgres', // Ou o utilizador que configuraste
-      password: '12345', // A senha do TEU banco de dados local
-      database: 'animaltools', // O nome do banco
+      user: 'postgres',
+      password: '12345',
+      database: 'animaltools',
       max: 10,
       idleTimeoutMillis: 30000,
     },
@@ -17,7 +15,7 @@ module.exports = {
   },
   redis: {
     animaltoolscache: {
-      host: 'localhost', // Assumindo Redis local também
+      host: 'localhost',
       password: 'S3creT',
       port: 6379,
       tls: false,
@@ -37,7 +35,7 @@ module.exports = {
     techagrIot: 'techagr@iot',
   },
   animaltoolsAnalyticsApi: {
-    url: 'http://localhost:3000', // URL local ou mock
+    url: 'http://localhost:3000',
     paths: {
       complete: '/complete',
     },
@@ -57,8 +55,6 @@ module.exports = {
     token: 'token_dev',
   },
   aws: {
-    // Aqui podes deixar valores falsos se não fores usar S3 agora,
-    // ou coloca as TUAS chaves da AWS se precisares fazer upload de arquivos.
     accessKeyId: 'chave_falsa_dev',
     secretAccessKey: 'segredo_falso_dev',
     ses: {
