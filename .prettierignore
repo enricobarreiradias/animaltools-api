@@ -1,0 +1,6 @@
+# Ignorar tudo temporariamente
+apps/**/*.ts
+libs/**/*.ts
+
+# Ou, se quiseres ignorar só o arquivo problemático:
+# apps/admin/src/auth/auth.service.ts

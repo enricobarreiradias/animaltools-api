@@ -1,3 +1,4 @@
+
 import { 
   Injectable, 
   UnauthorizedException, 
@@ -11,17 +12,26 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as config from 'config'; // A lib config
+
 import { AuthCredentialsDto } from './auth-credentials.dto';
 import { JwtPayload } from './jwt-payload.interface';
-import { User } from '../../../../libs/data/src/entities/user.entity';
-import { UserRole } from '../../../../libs/data/src/enums/user-role.enum'; 
 import { AuditService } from '../audit/audit.service';
+
+import { User } from '@lib/data/entities/user.entity';
+import { UserRole } from '@lib/data/enums/user-role.enum'; 
+
+// 1. Interface profissional para erros do Driver Postgres
+interface PostgresError extends Error {
+  code: string; // O código do erro é garantido como string
+}
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-
-  private readonly ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || null; 
+  
+  // Variável tipada corretamente (pode ser string ou null)
+  private readonly ADMIN_EMAIL: string | null;
 
   constructor(
     @InjectRepository(User)
@@ -29,12 +39,24 @@ export class AuthService {
     private jwtService: JwtService,
     private auditService: AuditService,
   ) {
+    // 2. Leitura segura da configuração
+    // Usamos o método .get<string> para dizer ao TS que esperamos uma string
+    const configPath = 'security.superAdminEmail';
+    if (config.has(configPath)) {
+        this.ADMIN_EMAIL = config.get<string>(configPath);
+    } else {
+        this.ADMIN_EMAIL = null;
+    }
+
     if (!this.ADMIN_EMAIL) {
-        this.logger.warn('⚠️ SEGURANÇA: SUPER_ADMIN_EMAIL não está definido no .env! O administrador principal não está protegido contra remoção.');
+        this.logger.warn('SEGURANÇA: SUPER_ADMIN_EMAIL não está configurado!');
+    } else {
+        this.logger.log(`Segurança: Proteção ativa para: ${this.ADMIN_EMAIL}`);
     }
   }
 
-  // --- 1. SIGN UP ---
+  // --- MÉTODOS ---
+
   async signUp(authCredentialsDto: AuthCredentialsDto): Promise<void> {
     const { email, password, fullName } = authCredentialsDto;
 
@@ -50,8 +72,10 @@ export class AuthService {
 
     try {
       await this.userRepository.save(user);
-    } catch (error) {
-      if (error.code === '23505') {
+    } catch (error: unknown) {
+      // 3. Type Guard Profissional
+      // Verificamos se o erro é um objeto e tem a propriedade 'code'
+      if (this.isPostgresError(error) && error.code === '23505') {
         throw new ConflictException('Este email já está cadastrado.');
       } else {
         this.logger.error('Erro ao salvar usuário:', error);
@@ -60,10 +84,17 @@ export class AuthService {
     }
   }
 
-  // --- 2. VALIDATE ---
+  // Helper para verificar se é um erro do Postgres (Type Guard)
+  private isPostgresError(error: unknown): error is PostgresError {
+      return (
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error
+      );
+  }
+
   async validateUserPassword(authCredentialsDto: AuthCredentialsDto): Promise<User | null> {
     const { email, password } = authCredentialsDto;
-    
     const user = await this.userRepository.findOne({ 
         where: { email },
         select: ['id', 'email', 'password', 'role', 'fullName'] 
@@ -72,11 +103,9 @@ export class AuthService {
     if (user && await bcrypt.compare(password, user.password)) {
       return user;
     }
-
     return null;
   }
 
-  // --- 3. SIGN IN ---
   async signIn(authCredentialsDto: AuthCredentialsDto): Promise<{ accessToken: string, user: any }> {
     const user = await this.validateUserPassword(authCredentialsDto); 
 
@@ -90,7 +119,7 @@ export class AuthService {
         role: user.role 
     }; 
     
-    const accessToken = await this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload);
 
     return { 
         accessToken,
@@ -103,7 +132,6 @@ export class AuthService {
     };
   }
 
-  // --- 4. LISTAR TODOS ---
   async findAll(): Promise<User[]> {
     return this.userRepository.find({
       select: ['id', 'fullName', 'email', 'role', 'registrationDate'], 
@@ -111,7 +139,6 @@ export class AuthService {
     });
   }
 
-  // --- 5. ATUALIZAR (Com Proteção de Admin) ---
   async update(id: number, updateData: { fullName?: string; email?: string; password?: string; role?: UserRole }): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id } });
 
@@ -119,9 +146,8 @@ export class AuthService {
         throw new NotFoundException(`Usuário com ID ${id} não encontrado.`);
     }
 
-    // 4. Verificação segura: só bloqueia se o email estiver configurado E corresponder
     if (this.ADMIN_EMAIL && user.email === this.ADMIN_EMAIL) {
-        throw new ForbiddenException('Não é permitido alterar os dados do Super Administrador Principal.');
+        throw new ForbiddenException('Não é permitido alterar o Super Admin.');
     }
 
     const { fullName, email, password, role } = updateData;
@@ -137,16 +163,15 @@ export class AuthService {
 
     try {
         await this.userRepository.save(user);
-    } catch (error) {
-        if (error.code === '23505') {
-            throw new ConflictException('Email já está em uso por outro usuário.');
+    } catch (error: unknown) {
+        if (this.isPostgresError(error) && error.code === '23505') {
+            throw new ConflictException('Email já está em uso.');
         } else {
             throw new InternalServerErrorException();
         }
     }
   }
 
-  // --- 6. REMOVER (Com Proteção de Admin) ---
   async remove(id: number): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id } });
 
@@ -154,9 +179,8 @@ export class AuthService {
         throw new NotFoundException(`Usuário com ID ${id} não encontrado.`);
     }
 
-    // 5. Verificação segura aqui também
     if (this.ADMIN_EMAIL && user.email === this.ADMIN_EMAIL) {
-        throw new ForbiddenException('CRÍTICO: Não é permitido remover o Administrador Principal.');
+        throw new ForbiddenException('Não é permitido remover o Super Admin.');
     }
 
     await this.userRepository.remove(user);

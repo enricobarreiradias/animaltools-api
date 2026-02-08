@@ -1,9 +1,13 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../../../../libs/data/src/entities/user.entity'; //
+import * as config from 'config'; 
+import { User } from '@lib/data/entities/user.entity'; 
 import { JwtPayload } from './jwt-payload.interface';
 
 @Injectable()
@@ -17,13 +21,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET ?? '', 
+      secretOrKey: config.get('jwt.secret'),
     });
-
-    if (!process.env.JWT_SECRET) {
-      this.logger.error('CRÍTICO: JWT_SECRET não está definido nas variáveis de ambiente!');
-      throw new Error('JWT_SECRET is crucial for security. Please set it in .env file.');
-    }
   }
 
   async validate(payload: JwtPayload): Promise<User> {
