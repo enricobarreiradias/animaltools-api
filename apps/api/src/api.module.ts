@@ -1,27 +1,49 @@
 import { Module } from '@nestjs/common';
-import { UserModule } from './user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { animaltoolsTypeOrmConfig } from '@lib/config/typeorm';
-import { DentalEvaluationModule } from './dental-evaluation/dental-evaluation.module';
-// 1. Importar o ConfigModule
 import { ConfigModule } from '@nestjs/config';
-// 2. Importar o arquivo de configuração de ambiente
-import * as developmentConfig from '@lib/config/development-aws';
-//Importação da autenticação
-import { PassportModule } from '@nestjs/passport';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+
+// --- Módulos Originais da API ---
+import { DentalEvaluationModule } from './dental-evaluation/dental-evaluation.module';
+import { UserModule } from './user/user.module';
+
+// --- SEUS Módulos (Migrados do Admin) ---
+import { AnimalModule } from './animal/animal.module';
+import { EvaluationModule } from './evaluation/evaluation.module';
+import { AuthModule } from './auth/auth.module';
+import { AuditModule } from './audit/audit.module';
+
+// --- Configuração Compartilhada (A que consertamos!) ---
+import { animaltoolsTypeOrmConfig } from '@lib/config/typeorm';
 
 @Module({
   imports: [
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-     // 3. Carregar o ConfigModule e as configurações
+    // 1. Configuração Global
     ConfigModule.forRoot({
-      isGlobal: true, // Torna o ConfigService acessível em qualquer lugarca
-      load: [() => developmentConfig], // Carrega o objeto de configuração importado
+      isGlobal: true,
     }),
+
+    // 2. Banco de Dados (Usando a config centralizada da lib)
+    TypeOrmModule.forRootAsync({
+      useFactory: () => animaltoolsTypeOrmConfig,
+    }),
+
+    // 3. Arquivos Estáticos (Uploads)
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '../../..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
+
+    // 4. Módulos de Funcionalidade (Todos juntos agora!)
+    AuthModule,
     UserModule,
-    TypeOrmModule.forRoot(animaltoolsTypeOrmConfig),
+    AnimalModule,
+    EvaluationModule,
     DentalEvaluationModule,
+    AuditModule,
   ],
+  controllers: [],
   providers: [],
 })
 export class ApiModule {}

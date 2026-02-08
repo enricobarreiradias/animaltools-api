@@ -1,18 +1,17 @@
 import { 
   Controller, Get, Post, Body, Patch, Param, Delete, 
-  UseGuards, Query, DefaultValuePipe, ParseIntPipe, Req 
+  UseGuards, Query 
 } from '@nestjs/common';
 import { AnimalService } from './animal.service';
 import { CreateAnimalDto } from './dto/create-animal.dto';
 import { UpdateAnimalDto } from './dto/update-animal.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { User } from '../../../../libs/data/src/entities/user.entity'; 
 
 @Controller('animal')
 export class AnimalController {
   constructor(private readonly animalService: AnimalService) {}
 
-  // --- ROTAS PÚBLICAS  ---
+  // --- ROTAS PÚBLICAS ---
 
   @Post('integration/webhook') 
   async webhook(@Body() externalData: any) {
@@ -59,26 +58,22 @@ export class AnimalController {
     return this.animalService.findOne(+id);
   }
 
-  // --- UPDATE  ---
+  // --- UPDATE ---
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'))
   update(
       @Param('id') id: string, 
       @Body() updateAnimalDto: UpdateAnimalDto,
-      @Req() req: any 
   ) {
-    const user = req.user as User;
-    return this.animalService.update(+id, updateAnimalDto, user);
+    return this.animalService.update(+id, updateAnimalDto);
   }
 
-  // --- DELETE  ---
+  // --- DELETE ---
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
   remove(
       @Param('id') id: string,
-      @Req() req: any 
   ) {
-    const user = req.user as User;
-    return this.animalService.remove(+id, user);
+    return this.animalService.remove(+id);
   }
 }

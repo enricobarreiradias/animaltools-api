@@ -3,19 +3,30 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, DeepPartial } from 'typeorm';
 import axios from 'axios';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import * as config from 'config'; // Usando a lib de configuração
+
 import { CreateAnimalDto } from './dto/create-animal.dto';
 import { UpdateAnimalDto } from './dto/update-animal.dto';
-import { Animal } from '../../../../libs/data/src/entities/animal.entity';
-import { Media } from '../../../../libs/data/src/entities/media.entity'; 
-import { PhotoType } from '../../../../libs/data/src/enums/dental-evaluation.enums'; 
+import { Animal } from '@lib/data/entities/animal.entity';
+import { Media } from '@lib/data/entities/media.entity'; 
+import { PhotoType } from '@lib/data/enums/dental-evaluation.enums'; 
 import { AuditService } from '../audit/audit.service';
-import { User } from '../../../../libs/data/src/entities/user.entity';
+// Removemos a importação de 'User' pois não é mais usada
+
+// Interfaces auxiliares para tipar o retorno do banco (Remove o erro "Unsafe return")
+interface FarmResult {
+  farm: string;
+}
+
+interface ClientResult {
+  client: string;
+}
 
 @Injectable()
 export class AnimalService {
   private readonly logger = new Logger(AnimalService.name);
   private s3Client: S3Client;
-  private readonly bucketName = process.env.AWS_S3_BUCKET_NAME || 'animaltools-media';
+  private readonly bucketName: string;
 
   constructor(
     @InjectRepository(Animal)
@@ -25,13 +36,21 @@ export class AnimalService {
     private mediaRepository: Repository<Media>,
 
     private dataSource: DataSource,
-    private auditService: AuditService, // Mantido apenas para o SYNC
+    private auditService: AuditService,
   ) {
+    // Leitura segura da configuração AWS via 'config'
+    const awsConfig = config.has('aws') ? config.get<any>('aws') : {};
+    const s3BucketConfig = config.has('aws.s3.buckets.animaltoolsImages') 
+        ? config.get<any>('aws.s3.buckets.animaltoolsImages') 
+        : { name: 'animaltools-media', region: 'us-east-1' };
+
+    this.bucketName = s3BucketConfig.name;
+
     this.s3Client = new S3Client({
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: s3BucketConfig.region || 'us-east-1',
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+        accessKeyId: awsConfig.accessKeyId || '',
+        secretAccessKey: awsConfig.secretAccessKey || '',
       },
     });
   }
@@ -100,7 +119,7 @@ export class AnimalService {
                 where: { sisbovNumber: mappedData.sisbovNumber } 
             });
         }
-        // Upsert via CHIP (Lógica de Teste)
+        // Upsert via CHIP
         if (!animal && mappedData.chip) {
              animal = await queryRunner.manager.findOne(Animal, { 
                 where: { chip: mappedData.chip } 
@@ -139,30 +158,22 @@ export class AnimalService {
                     where: { s3UrlPath: link, animal: { id: savedAnimal.id } } 
                 });
 
-                // Se a foto ainda não existe no nosso banco...
                 if (!existingMedia) {
-                    let finalUrl = link; // Começamos com o link do Drive por segurança
+                    let finalUrl = link;
 
-                    // LÓGICA DO FLUXO: Drive -> Download -> AWS -> Link AWS
                     if (link.includes('drive.google.com')) {
                         try {
-                             // Tenta realizar o processo de migração
-                             // Se a conta AWS não estiver configurada, vai dar erro aqui e cair no catch
                              const s3Url = await this.processDriveImageToS3(link, savedAnimal.tagCode, index);
                              
-                             // Se deu certo (retornou string), o link final passa a ser o da AWS
                              if (s3Url) {
                                 finalUrl = s3Url;
                                 this.logger.log(`Imagem migrada para S3: ${finalUrl}`);
                              }
                         } catch (e) {
-                            // Se falhar (ex: sem credenciais), loga o aviso mas não para o sistema
                             this.logger.warn(`Upload S3 pendente (usando link original): ${e.message}`);
                         }
                     }
 
-                    // Salva no banco. Se o upload funcionou, 'finalUrl' é AWS. Se não, é Drive.
-                    // O Frontend vai ler o que estiver em 's3UrlPath'.
                     const newMedia = this.mediaRepository.create({
                         animal: savedAnimal,
                         s3UrlPath: finalUrl, 
@@ -194,7 +205,7 @@ export class AnimalService {
     }
   }
 
-  // --- SINCRONIZAÇÃO PULL (Mantém logs personalizados) ---
+  // --- SINCRONIZAÇÃO PULL ---
   async syncFromExternalApi(start?: string, end?: string) {
     const today = new Date();
     const sevenDaysAgo = new Date();
@@ -209,7 +220,6 @@ export class AnimalService {
 
     this.logger.log(`🔄 Iniciando sincronização: ${url}`);
 
-    // LOG DE INÍCIO - Mantido pois é uma ação de sistema importante
     await this.auditService.log(
         'SYNC_START',
         'ExternalApi',
@@ -239,7 +249,6 @@ export class AnimalService {
 
       const details = `Sincronização concluída. Total: ${countTotal}. Novos: ${countCreated}. Atualizados: ${countUpdated}.`;
 
-      // LOG DE SUCESSO - Mantido com estatísticas detalhadas
       await this.auditService.log(
           'SYNC_SUCCESS',
           'ExternalApi',
@@ -259,7 +268,6 @@ export class AnimalService {
              return { message: 'Nenhum animal encontrado ou alterado neste período.', period: `${dtInit} a ${dtEnd}` };
         }
         
-        // LOG DE ERRO - Mantido
         await this.auditService.log(
             'SYNC_ERROR',
             'ExternalApi',
@@ -276,7 +284,6 @@ export class AnimalService {
   create(createAnimalDto: CreateAnimalDto) {
     const animal = this.animalRepository.create(createAnimalDto);
     return this.animalRepository.save(animal);
-    // Interceptor gravará CREATE_ANIMAL automaticamente
   }
 
   findAll() {
@@ -312,47 +319,45 @@ export class AnimalService {
     };
   }
 
-  async update(id: number, updateAnimalDto: UpdateAnimalDto, user: User) {
+  // CORREÇÃO: Removemos o argumento 'user' que não estava sendo usado
+  async update(id: number, updateAnimalDto: UpdateAnimalDto) {
     const animal = await this.animalRepository.findOne({ where: { id } });
     if (!animal) throw new NotFoundException(`Animal com ID ${id} não encontrado.`);
 
     await this.animalRepository.update(id, updateAnimalDto);
     
-    // REMOVIDO: await this.auditService.log(...) 
-    // O Interceptor captura o PATCH/PUT e loga automaticamente
-    
     return this.findOne(id);
   }
 
-  async remove(id: number, user: User) {
+  // CORREÇÃO: Removemos o argumento 'user'
+  async remove(id: number) {
     const animalEntity = await this.animalRepository.findOneBy({ id });
     if (!animalEntity) {
         throw new NotFoundException(`Animal #${id} não encontrado.`);
     }
     
     await this.animalRepository.remove(animalEntity);
-
-    // REMOVIDO: await this.auditService.log(...)
-    // O Interceptor captura o DELETE e loga automaticamente
     
     return animalEntity;
   }
 
-  async findUniqueFarms() {
+  // CORREÇÃO: Usamos o Generic <FarmResult> para tipar o retorno
+  async findUniqueFarms(): Promise<string[]> {
     return this.animalRepository.createQueryBuilder('animal')
       .select('DISTINCT animal.farm', 'farm')
       .where('animal.farm IS NOT NULL')
       .orderBy('animal.farm', 'ASC')
-      .getRawMany()
+      .getRawMany<FarmResult>() // Tipagem explícita aqui
       .then(res => res.map(f => f.farm));
   }
 
-  async findUniqueClients() {
+  // CORREÇÃO: Usamos o Generic <ClientResult> para tipar o retorno
+  async findUniqueClients(): Promise<string[]> {
     return this.animalRepository.createQueryBuilder('animal')
       .select('DISTINCT animal.client', 'client')
       .where("animal.client IS NOT NULL AND animal.client != ''")
       .orderBy('animal.client', 'ASC')
-      .getRawMany()
+      .getRawMany<ClientResult>() // Tipagem explícita aqui
       .then(res => res.map(c => c.client));
   }
 
