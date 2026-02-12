@@ -1,8 +1,6 @@
 import * as config from 'config'
 
-export default function getConfig(
-  database
-): {
+interface PgConfig {
   user: string
   database: string
   password: string
@@ -10,10 +8,12 @@ export default function getConfig(
   port: number
   max: number
   idleTimeoutMillis: number
-} {
-  var pgJsonConfig = config.get(`pg.${database}`)
+}
 
-  let pgConfig = {
+export default function getConfig(database: string): PgConfig {
+  const pgJsonConfig = config.get<PgConfig>(`pg.${database}`)
+
+  const pgConfig = {
     user: pgJsonConfig.user,
     database: pgJsonConfig.database,
     password: pgJsonConfig.password,

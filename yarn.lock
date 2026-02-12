@@ -2485,6 +2485,11 @@
   dependencies:
     cache-manager-redis-store "*"
 
+"@types/config@^3.3.5":
+  version "3.3.5"
+  resolved "https://registry.npmjs.org/@types/config/-/config-3.3.5.tgz"
+  integrity sha512-itq2HtXQBrNUKwMNZnb9mBRE3T99VYCdl1gjST9rq+9kFaB1iMMGuDeZnP88qid73DnpAMKH9ZolqDpS1Lz7+w==
+
 "@types/connect@*":
   version "3.4.38"
   resolved "https://registry.npmjs.org/@types/connect/-/connect-3.4.38.tgz"

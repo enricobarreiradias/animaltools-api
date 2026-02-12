@@ -14,11 +14,12 @@ async function bootstrap() {
   app.enableCors();
 
   // Validação Global (Para os DTOs funcionarem)
+  // whitelist: true strips unknown properties; forbidNonWhitelisted: false avoids 400 when frontends send extra fields (e.g. from API response)
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
     }),
   );
 
@@ -34,7 +35,9 @@ async function bootstrap() {
 
   // Definir Porta
   // Tenta ler do config, se não der, tenta variável de ambiente, ou usa 3333
-  const serverConfig = config.has('server') ? config.get('server') : { port: 3333 };
+  const serverConfig = (config.has('server')
+    ? config.get('server')
+    : { port: 3333 }) as { port?: number };
   const port = process.env.PORT || serverConfig.port || 3333;
 
   await app.listen(port);

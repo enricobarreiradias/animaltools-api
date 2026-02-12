@@ -1,4 +1,7 @@
-import { User } from '@lib/data/entities/animaltools/user.entity';
+// apps/api/src/user/user.service.ts
+
+// 1. CORREÇÃO: Apontando para a entidade correta (a mesma do Auth e do TypeORM config)
+import { User } from '@lib/data/entities/user.entity'; 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -10,36 +13,39 @@ export class UserService {
         private userRepository: Repository<User>
     ) { }
 
-    async getAllUsers() {
+    async getAllUsers(): Promise<User[]> {
         try {
-            const user = this.userRepository.find()
+            const user = await this.userRepository.find()
+            return user
+        } catch (error) {
+            console.log(error)
+            throw error
+        }
+    }
+
+    async getUserById(id: number) {
+        try {
+            // Nota: findBy requer um objeto where
+            const user = await this.userRepository.findBy({ id: id })
             return user
         } catch (error) {
             console.log(error)
         }
     }
 
-    async getUserById(id) {
-        try {
-            const user = this.userRepository.findBy({ id: id })
-            return user
-        } catch (error) {
-            console.log(error)
-        }
-    }
-
-    async createUser(user) {
+    async createUser(user: Partial<User>): Promise<User> {
         try {
             const newUser = await this.userRepository.save(user)
             return newUser
         } catch (error) {
             console.log(error)
+            throw error
         }
     }
 
-    async updateUser(id, user) {
+    async updateUser(id: number, user: Partial<User>) {
         try {
-            this.userRepository
+            await this.userRepository
                 .createQueryBuilder()
                 .update(User)
                 .set(user)
@@ -50,12 +56,13 @@ export class UserService {
             }
         } catch (error) {
             console.log(error)
+            throw error
         }
     }
 
-    async deleteUser(id) {
+    async deleteUser(id: number) {
         try {
-            this.userRepository
+            await this.userRepository
                 .createQueryBuilder()
                 .delete()
                 .from(User)
@@ -66,6 +73,7 @@ export class UserService {
             }
         } catch (error) {
             console.log(error)
+            throw error
         }
     }
 }

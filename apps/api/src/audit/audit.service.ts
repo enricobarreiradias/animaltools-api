@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm'; // Adicionado Like
+import { Repository } from 'typeorm'; // Adicionado Like
 import { AuditLog } from '../../../../libs/data/src/entities/audit-log.entity';
 import { User } from '../../../../libs/data/src/entities/user.entity';
 

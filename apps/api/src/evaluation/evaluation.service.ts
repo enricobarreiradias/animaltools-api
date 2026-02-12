@@ -4,22 +4,20 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, DataSource } from "typeorm";
+import { Repository, DataSource, DeepPartial } from "typeorm";
 import { QuickMoultingDto, MoultingStage } from "./dto/quick-moulting.dto";
-
-// CORREÇÃO: Imports ajustados para @lib/data (Caminho absoluto do monorepo)
-import { DentalEvaluation } from "@lib/data/entities/dental-evaluation.entity";
-import { ToothEvaluation } from "@lib/data/entities/tooth-evaluation.entity";
-import { Animal } from "@lib/data/entities/animal.entity";
-import { User } from "@lib/data/entities/user.entity";
-import { Media } from "@lib/data/entities/media.entity";
+import { DentalEvaluation } from "@app/data/entities/dental-evaluation.entity";
+import { ToothEvaluation } from "@app/data/entities/tooth-evaluation.entity";
+import { Animal } from "@app/data/entities/animal.entity";
+import { User } from "@app/data/entities/user.entity";
+import { Media } from "@app/data/entities/media.entity";
 import {
   PhotoType,
   SeverityScale,
   ToothCode,
   ColorScale,
   ToothType,
-} from "@lib/data/enums/dental-evaluation.enums";
+} from "@app/data/enums/dental-evaluation.enums";
 
 @Injectable()
 export class EvaluationService {
@@ -105,24 +103,25 @@ export class EvaluationService {
           });
         }
 
-        // Lógica de fallback: usa o valor novo, se não existir usa o antigo, se não existir usa o padrão
-        tooth.toothType = toothData.toothType || tooth.toothType || ToothType.PERMANENT;
-        tooth.isPresent = toothData.isPresent !== undefined ? toothData.isPresent : (tooth.isPresent ?? true);
-        
-        // Severidade e escalas
-        tooth.crownReductionLevel = toothData.crownReductionLevel ?? tooth.crownReductionLevel ?? SeverityScale.NONE;
-        tooth.lingualWear = toothData.lingualWear ?? tooth.lingualWear ?? SeverityScale.NONE;
-        tooth.gingivalRecessionLevel = toothData.gingivalRecessionLevel ?? tooth.gingivalRecessionLevel ?? SeverityScale.NONE;
-        tooth.periodontalLesions = toothData.periodontalLesions ?? tooth.periodontalLesions ?? SeverityScale.NONE;
-        tooth.fractureLevel = toothData.fractureLevel ?? tooth.fractureLevel ?? SeverityScale.NONE;
-        tooth.pulpitis = toothData.pulpitis ?? tooth.pulpitis ?? SeverityScale.NONE;
-        tooth.vitrifiedBorder = toothData.vitrifiedBorder ?? tooth.vitrifiedBorder ?? SeverityScale.NONE;
-        tooth.pulpChamberExposure = toothData.pulpChamberExposure ?? tooth.pulpChamberExposure ?? SeverityScale.NONE;
-        tooth.gingivitisEdema = toothData.gingivitisEdema ?? tooth.gingivitisEdema ?? SeverityScale.NONE;
-        tooth.gingivitisColor = toothData.gingivitisColor ?? tooth.gingivitisColor ?? ColorScale.NORMAL;
-        tooth.dentalCalculus = toothData.dentalCalculus ?? tooth.dentalCalculus ?? SeverityScale.NONE;
-        tooth.abnormalColor = toothData.abnormalColor ?? tooth.abnormalColor ?? ColorScale.NORMAL;
-        tooth.caries = toothData.caries ?? tooth.caries ?? SeverityScale.NONE;
+        tooth.toothType = toothData.toothType || ToothType.PERMANENT;
+        tooth.isPresent = toothData.isPresent !== false;
+        tooth.crownReductionLevel =
+          toothData.crownReductionLevel || SeverityScale.NONE;
+        tooth.lingualWear = toothData.lingualWear || SeverityScale.NONE;
+        tooth.gingivalRecessionLevel =
+          toothData.gingivalRecessionLevel || SeverityScale.NONE;
+        tooth.periodontalLesions =
+          toothData.periodontalLesions || SeverityScale.NONE;
+        tooth.fractureLevel = toothData.fractureLevel || SeverityScale.NONE;
+        tooth.pulpitis = toothData.pulpitis || SeverityScale.NONE;
+        tooth.vitrifiedBorder = toothData.vitrifiedBorder || SeverityScale.NONE;
+        tooth.pulpChamberExposure =
+          toothData.pulpChamberExposure || SeverityScale.NONE;
+        tooth.gingivitisEdema = toothData.gingivitisEdema || SeverityScale.NONE;
+        tooth.gingivitisColor = toothData.gingivitisColor || ColorScale.NORMAL;
+        tooth.dentalCalculus = toothData.dentalCalculus || SeverityScale.NONE;
+        tooth.abnormalColor = toothData.abnormalColor || ColorScale.NORMAL;
+        tooth.caries = toothData.caries || SeverityScale.NONE;
 
         await this.toothRepository.save(tooth);
       }
@@ -133,12 +132,16 @@ export class EvaluationService {
     return this.findOne(savedEvaluation.id);
   }
 
-  // --- MÉTODOS AUXILIARES E DE BUSCA ---
-
   async applyQuickMoulting(dto: QuickMoultingDto) {
     const allTeethCodes = [
-      "I1_LEFT", "I1_RIGHT", "I2_LEFT", "I2_RIGHT",
-      "I3_LEFT", "I3_RIGHT", "I4_LEFT", "I4_RIGHT",
+      "I1_LEFT",
+      "I1_RIGHT",
+      "I2_LEFT",
+      "I2_RIGHT",
+      "I3_LEFT",
+      "I3_RIGHT",
+      "I4_LEFT",
+      "I4_RIGHT",
     ];
 
     const teethData = allTeethCodes.map((code) => {
@@ -147,9 +150,15 @@ export class EvaluationService {
         toothCode: code,
         isPresent: true,
         toothType: isPermanent ? "PERMANENT" : "DECIDUOUS",
-        fractureLevel: 0, pulpitis: 0, crownReductionLevel: 0,
-        gingivalRecessionLevel: 0, lingualWear: 0, periodontalLesions: 0,
-        caries: 0, abnormalColor: 0, gingivitisColor: 0,
+        fractureLevel: 0,
+        pulpitis: 0,
+        crownReductionLevel: 0,
+        gingivalRecessionLevel: 0,
+        lingualWear: 0,
+        periodontalLesions: 0,
+        caries: 0,
+        abnormalColor: 0,
+        gingivitisColor: 0,
       };
     });
 
@@ -164,91 +173,232 @@ export class EvaluationService {
   private checkIsPermanent(code: string, stage: MoultingStage): boolean {
     const prefix = code.split("_")[0];
     switch (prefix) {
-      case "I1": return [MoultingStage.D2, MoultingStage.D4, MoultingStage.D6, MoultingStage.BC].includes(stage);
-      case "I2": return [MoultingStage.D4, MoultingStage.D6, MoultingStage.BC].includes(stage);
-      case "I3": return [MoultingStage.D6, MoultingStage.BC].includes(stage);
-      case "I4": return [MoultingStage.BC].includes(stage);
-      default: return false;
+      case "I1":
+        return [
+          MoultingStage.D2,
+          MoultingStage.D4,
+          MoultingStage.D6,
+          MoultingStage.BC,
+        ].includes(stage);
+      case "I2":
+        return [MoultingStage.D4, MoultingStage.D6, MoultingStage.BC].includes(
+          stage,
+        );
+      case "I3":
+        return [MoultingStage.D6, MoultingStage.BC].includes(stage);
+      case "I4":
+        return [MoultingStage.BC].includes(stage);
+      default:
+        return false;
     }
   }
 
   // --- 2. PENDENTES  ---
   async findPendingEvaluations(
-    page: number = 1, limit: number = 20, search?: string, filterFarm?: string, filterClient?: string,
+    page: number = 1,
+    limit: number = 20,
+    search?: string,
+    filterFarm?: string,
+    filterClient?: string,
   ) {
-    const query = this.animalRepository.createQueryBuilder("animal")
+    const query = this.animalRepository
+      .createQueryBuilder("animal")
       .leftJoinAndSelect("animal.mediaFiles", "media")
       .leftJoin("animal.dentalEvaluations", "evaluation")
       .where("evaluation.id IS NULL");
 
-    if (search) query.andWhere("(animal.tagCode ILIKE :search OR animal.id::text ILIKE :search)", { search: `%${search}%` });
-    if (filterFarm) query.andWhere("animal.farm ILIKE :farm", { farm: `%${filterFarm}%` });
-    if (filterClient) query.andWhere("animal.client ILIKE :client", { client: `%${filterClient}%` });
+    if (search)
+      query.andWhere(
+        "(animal.tagCode ILIKE :search OR animal.id::text ILIKE :search)",
+        { search: `%${search}%` },
+      );
+    if (filterFarm)
+      query.andWhere("animal.farm ILIKE :farm", { farm: `%${filterFarm}%` });
+    if (filterClient)
+      query.andWhere("animal.client ILIKE :client", {
+        client: `%${filterClient}%`,
+      });
 
-    const [animals, total] = await query.orderBy("animal.id", "DESC")
-      .skip((page - 1) * limit).take(limit).getManyAndCount();
+    const [animals, total] = await query
+      .orderBy("animal.id", "DESC")
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     return {
       data: animals.map((a) => ({
-        id: a.id.toString(), code: a.tagCode, breed: a.breed, farm: a.farm, client: a.client, age: a.age, chip: a.chip, sisbov: a.sisbovNumber, currentWeight: a.currentWeight, lot: a.lot,
-        birthDate: a.birthDate ? new Date(a.birthDate).toLocaleDateString("pt-BR") : undefined,
-        entryDate: a.collectionDate ? new Date(a.collectionDate).toLocaleDateString("pt-BR") : "N/A",
-        createdAt: a.createdAt, media: a.mediaFiles?.map((m) => m.s3UrlPath) || [],
+        id: a.id.toString(),
+        code: a.tagCode,
+        breed: a.breed,
+        farm: a.farm,
+        client: a.client,
+        age: a.age,
+        chip: a.chip,
+        sisbov: a.sisbovNumber,
+        currentWeight: a.currentWeight,
+        lot: a.lot,
+        birthDate: a.birthDate
+          ? new Date(a.birthDate).toLocaleDateString("pt-BR")
+          : undefined,
+        entryDate: a.collectionDate
+          ? new Date(a.collectionDate).toLocaleDateString("pt-BR")
+          : "N/A",
+        createdAt: a.createdAt,
+        media: a.mediaFiles?.map((m) => m.s3UrlPath) || [],
       })),
       meta: { total, page, limit, lastPage: Math.ceil(total / limit) },
     };
   }
 
-  // --- 3. HISTÓRICO ---
+  // --- HELPER: CÁLCULO DE STATUS ---
+  private calculateStatus(
+    teeth: ToothEvaluation[],
+  ): "CRITICAL" | "MODERATE" | "HEALTHY" {
+    if (!teeth || teeth.length === 0) return "HEALTHY";
+
+    const hasCritical = teeth.some(
+      (t) =>
+        (t.fractureLevel as number) === (SeverityScale.SEVERE as number) ||
+        (t.pulpitis as number) === (SeverityScale.SEVERE as number) ||
+        (t.gingivalRecessionLevel) === (SeverityScale.SEVERE as number) ||
+        (t.pulpChamberExposure as number) > 0 ||
+        (t.periodontalLesions as number) === (SeverityScale.SEVERE as number),
+    );
+    if (hasCritical) return "CRITICAL";
+
+    const hasModerate = teeth.some(
+      (t) =>
+        (t.fractureLevel as number) === (SeverityScale.MODERATE as number) ||
+        (t.pulpitis as number) === (SeverityScale.MODERATE as number) ||
+        (t.gingivalRecessionLevel) === (SeverityScale.MODERATE as number) ||
+        (t.crownReductionLevel) >= (SeverityScale.MODERATE as number) ||
+        (t.periodontalLesions as number) >= (SeverityScale.MODERATE as number) ||
+        (t.dentalCalculus as number) >= (SeverityScale.MODERATE as number) ||
+        (t.lingualWear as number) >= (SeverityScale.MODERATE as number) ||
+        (t.caries as number) >= 1, // Cárie >= 1 é Moderado
+    );
+    if (hasModerate) return "MODERATE";
+    return "HEALTHY";
+  }
+
+  // --- HELPER: CÁLCULO DE CRONOLOGIA ---
+  private calculateChronology(
+    permanentIncisorsCount: number,
+  ): "DL" | "2D" | "4D" | "6D" | "8D" {
+    if (permanentIncisorsCount === 0) return "DL";
+    if (permanentIncisorsCount <= 2) return "2D";
+    if (permanentIncisorsCount <= 4) return "4D";
+    if (permanentIncisorsCount <= 6) return "6D";
+    return "8D"; // Boca cheia
+  }
+
+  // --- 3. HISTÓRICO (Com Filtro de Cronologia e Correção de Enum) ---
   async findAllHistory(
-    page: number = 1, limit: number = 10, search?: string, filterFarm?: string, filterClient?: string,
-    filterPathology?: string, filterChronology?: string,
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    filterFarm?: string,
+    filterClient?: string,
+    filterPathology?: string,
+    filterChronology?: string,
   ) {
-    const query = this.evaluationRepository.createQueryBuilder("evaluation")
+    const query = this.evaluationRepository
+      .createQueryBuilder("evaluation")
       .leftJoinAndSelect("evaluation.animal", "animal")
       .leftJoinAndSelect("evaluation.mediaFiles", "mediaFiles")
       .leftJoinAndSelect("evaluation.evaluator", "evaluator")
       .innerJoinAndSelect("evaluation.teeth", "teeth");
 
-    if (search) query.andWhere("(animal.tagCode ILIKE :search OR animal.id::text ILIKE :search)", { search: `%${search}%` });
-    if (filterFarm && filterFarm !== "all") query.andWhere("animal.farm ILIKE :farm", { farm: `%${filterFarm}%` });
-    if (filterClient && filterClient !== "all") query.andWhere("animal.client ILIKE :client", { client: `%${filterClient}%` });
+    // FILTROS BÁSICOS
+    if (search)
+      query.andWhere(
+        "(animal.tagCode ILIKE :search OR animal.id::text ILIKE :search)",
+        { search: `%${search}%` },
+      );
+    if (filterFarm && filterFarm !== "all")
+      query.andWhere("animal.farm ILIKE :farm", { farm: `%${filterFarm}%` });
+    if (filterClient && filterClient !== "all")
+      query.andWhere("animal.client ILIKE :client", {
+        client: `%${filterClient}%`,
+      });
 
+    // FILTRO DE PATOLOGIA
     if (filterPathology) {
       const map: Record<string, string> = {
-        fracture: "teeth.fracture_level", pulpitis: "teeth.pulpitis", recession: "teeth.gingival_recession_level",
-        crown: "teeth.crown_reduction_level", calculus: "teeth.dental_calculus", periodontal: "teeth.periodontal_lesions",
-        lingual: "teeth.lingual_wear", caries: "teeth.caries", vitrified: "teeth.vitrified_border",
-        exposure: "teeth.pulp_chamber_exposure", edema: "teeth.gingivitis_edema",
+        fracture: "teeth.fracture_level",
+        pulpitis: "teeth.pulpitis",
+        recession: "teeth.gingival_recession_level",
+        crown: "teeth.crown_reduction_level",
+        calculus: "teeth.dental_calculus",
+        periodontal: "teeth.periodontal_lesions",
+        lingual: "teeth.lingual_wear",
+        caries: "teeth.caries",
+        vitrified: "teeth.vitrified_border",
+        exposure: "teeth.pulp_chamber_exposure",
+        edema: "teeth.gingivitis_edema",
       };
       const column = map[filterPathology];
       if (column) query.andWhere(`${column} > 0`);
     }
 
+    // --- FILTRO DE CRONOLOGIA (CORRIGIDO COM ::text) ---
     if (filterChronology) {
-      const chronologyMap: Record<string, string> = { dl: "= 0", "2d": "BETWEEN 1 AND 2", "4d": "BETWEEN 3 AND 4", "6d": "BETWEEN 5 AND 6", "8d": ">= 7" };
+      const chronologyMap: Record<string, string> = {
+        dl: "= 0",
+        "2d": "BETWEEN 1 AND 2",
+        "4d": "BETWEEN 3 AND 4",
+        "6d": "BETWEEN 5 AND 6",
+        "8d": ">= 7",
+      };
+
       const condition = chronologyMap[filterChronology.toLowerCase()];
+
       if (condition) {
-        query.andWhere(`(SELECT COUNT(*) FROM tooth_evaluation te WHERE te.dental_evaluation_id = evaluation.id AND te.tooth_code::text LIKE 'I%' AND te.tooth_type = 'PERMANENT') ${condition}`);
+        // CORREÇÃO: Adicionado ::text após tooth_code para permitir o operador LIKE
+        query.andWhere(
+          `(SELECT COUNT(*) FROM tooth_evaluation te 
+            WHERE te.dental_evaluation_id = evaluation.id 
+            AND te.tooth_code::text LIKE 'I%' 
+            AND te.tooth_type = 'PERMANENT') ${condition}`,
+        );
       }
     }
 
-    const [evaluations, total] = await query.orderBy("evaluation.evaluationDate", "DESC")
-      .skip((page - 1) * limit).take(limit).getManyAndCount();
+    const [evaluations, total] = await query
+      .orderBy("evaluation.evaluationDate", "DESC")
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     return {
       data: evaluations.map((ev) => {
-        const maxFracture = ev.teeth?.length ? Math.max(...ev.teeth.map((t) => t.fractureLevel)) : 0;
+        const maxFracture = ev.teeth?.length
+          ? Math.max(...ev.teeth.map((t) => t.fractureLevel))
+          : 0;
+
         const incisors = ev.teeth.filter((t) => t.toothCode.startsWith("I"));
-        const permanentCount = incisors.filter((t) => t.toothType === "PERMANENT").length;
+        const permanentCount = incisors.filter(
+          (t) => (t.toothType as string) === "PERMANENT",
+        ).length;
         const chronology = this.calculateChronology(permanentCount);
+
         const status = this.calculateStatus(ev.teeth);
 
         return {
-          id: ev.id.toString(), animalId: ev.animal.id.toString(), code: ev.animal.tagCode, breed: ev.animal.breed,
-          farm: ev.animal.farm, client: ev.animal.client, chip: ev.animal.chip, age: ev.animal.age,
-          chronology: chronology, lastEvaluationDate: ev.evaluationDate, media: ev.mediaFiles?.map((m) => m.s3UrlPath) || [],
-          worstFracture: maxFracture, status: status, evaluatorName: ev.evaluator ? ev.evaluator.fullName : "Sistema",
+          id: ev.id.toString(),
+          animalId: ev.animal.id.toString(),
+          code: ev.animal.tagCode,
+          breed: ev.animal.breed,
+          farm: ev.animal.farm,
+          client: ev.animal.client,
+          chip: ev.animal.chip,
+          age: ev.animal.age,
+          chronology: chronology,
+          lastEvaluationDate: ev.evaluationDate,
+          media: ev.mediaFiles?.map((m) => m.s3UrlPath) || [],
+          worstFracture: maxFracture,
+          status: status,
+          evaluatorName: ev.evaluator ? ev.evaluator.fullName : "Sistema",
           evaluatorId: ev.evaluator ? ev.evaluator.id : null,
         };
       }),
@@ -262,24 +412,39 @@ export class EvaluationService {
       where: { id },
       relations: ["animal", "evaluator", "mediaFiles", "teeth"],
     });
-    if (!evaluation) throw new NotFoundException(`Avaliação #${id} não encontrada.`);
+    if (!evaluation)
+      throw new NotFoundException(`Avaliação #${id} não encontrada.`);
     return evaluation;
   }
 
-  // --- 5. ATUALIZAR (Correção Principal) ---
-  async update(id: number, updateDto: any, user?: any) {
+  // --- 5. ATUALIZAR ---
+  async update(id: number, updateDto: any, user: any) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
       const evaluation = await queryRunner.manager.findOne(DentalEvaluation, {
-        where: { id }, relations: ["evaluator"],
+        where: { id },
+        relations: ["evaluator"],
       });
-      if (!evaluation) throw new NotFoundException(`Avaliação #${id} não encontrada.`);
+      if (!evaluation)
+        throw new NotFoundException(`Avaliação #${id} não encontrada.`);
 
-      if (updateDto.notes !== undefined) {
-        evaluation.generalObservations = updateDto.notes;
+      const isAdmin = user.role === "admin";
+      const isOwner =
+        evaluation.evaluator && evaluation.evaluator.id === user.id;
+
+      if (!isAdmin && !isOwner) {
+        throw new ForbiddenException(
+          "Você não tem permissão para editar esta avaliação.",
+        );
+      }
+
+      const notes =
+        updateDto.notes ?? updateDto.generalObservations;
+      if (notes !== undefined) {
+        evaluation.generalObservations = notes;
         await queryRunner.manager.save(evaluation);
       }
 
@@ -291,26 +456,28 @@ export class EvaluationService {
 
           if (!tooth) {
             tooth = queryRunner.manager.create(ToothEvaluation, {
-              evaluation: evaluation, toothCode: t.toothCode,
+              evaluation: evaluation,
+              toothCode: t.toothCode,
             });
           }
 
-          // AQUI ESTAVA O PROBLEMA DO 400:
-          // Antes, se t.toothType viesse undefined (parcial), o DTO reclamava.
-          // Agora com o DTO PartialType e esta lógica, funciona.
           Object.assign(tooth, {
             toothType: t.toothType ?? tooth.toothType,
             isPresent: t.isPresent ?? tooth.isPresent,
             fractureLevel: t.fractureLevel ?? tooth.fractureLevel,
             pulpitis: t.pulpitis ?? tooth.pulpitis,
-            gingivalRecessionLevel: t.gingivalRecessionLevel ?? tooth.gingivalRecessionLevel,
-            crownReductionLevel: t.crownReductionLevel ?? tooth.crownReductionLevel,
+            gingivalRecessionLevel:
+              t.gingivalRecessionLevel ?? tooth.gingivalRecessionLevel,
+            crownReductionLevel:
+              t.crownReductionLevel ?? tooth.crownReductionLevel,
             lingualWear: t.lingualWear ?? tooth.lingualWear,
-            periodontalLesions: t.periodontalLesions ?? tooth.periodontalLesions,
+            periodontalLesions:
+              t.periodontalLesions ?? tooth.periodontalLesions,
             dentalCalculus: t.dentalCalculus ?? tooth.dentalCalculus,
             caries: t.caries ?? tooth.caries,
             vitrifiedBorder: t.vitrifiedBorder ?? tooth.vitrifiedBorder,
-            pulpChamberExposure: t.pulpChamberExposure ?? tooth.pulpChamberExposure,
+            pulpChamberExposure:
+              t.pulpChamberExposure ?? tooth.pulpChamberExposure,
             gingivitisEdema: t.gingivitisEdema ?? tooth.gingivitisEdema,
             gingivitisColor: t.gingivitisColor ?? tooth.gingivitisColor,
             abnormalColor: t.abnormalColor ?? tooth.abnormalColor,
@@ -335,59 +502,470 @@ export class EvaluationService {
     return await this.evaluationRepository.remove(evaluation);
   }
 
-  // --- HELPERS E OUTROS ---
-  private calculateStatus(teeth: ToothEvaluation[]): "CRITICAL" | "MODERATE" | "HEALTHY" {
-    if (!teeth || teeth.length === 0) return "HEALTHY";
-    const hasCritical = teeth.some(t => t.fractureLevel === SeverityScale.SEVERE || t.pulpitis === SeverityScale.SEVERE || t.gingivalRecessionLevel === SeverityScale.SEVERE || t.pulpChamberExposure > 0 || t.periodontalLesions === SeverityScale.SEVERE);
-    if (hasCritical) return "CRITICAL";
-    const hasModerate = teeth.some(t => t.fractureLevel === SeverityScale.MODERATE || t.pulpitis === SeverityScale.MODERATE || t.gingivalRecessionLevel === SeverityScale.MODERATE || t.crownReductionLevel >= SeverityScale.MODERATE || t.periodontalLesions >= SeverityScale.MODERATE || t.dentalCalculus >= SeverityScale.MODERATE || t.lingualWear >= SeverityScale.MODERATE || t.caries >= 1);
-    if (hasModerate) return "MODERATE";
-    return "HEALTHY";
-  }
-
-  private calculateChronology(permanentIncisorsCount: number): "DL" | "2D" | "4D" | "6D" | "8D" {
-    if (permanentIncisorsCount === 0) return "DL";
-    if (permanentIncisorsCount <= 2) return "2D";
-    if (permanentIncisorsCount <= 4) return "4D";
-    if (permanentIncisorsCount <= 6) return "6D";
-    return "8D"; 
-  }
-
+  // --- 7. HISTÓRICO POR ANIMAL ---
   async findHistoryByAnimal(animalIdOrTag: string) {
     const isId = !isNaN(Number(animalIdOrTag));
-    const query = this.evaluationRepository.createQueryBuilder("evaluation").leftJoinAndSelect("evaluation.animal", "animal").leftJoinAndSelect("evaluation.mediaFiles", "media").leftJoinAndSelect("evaluation.evaluator", "evaluator").leftJoinAndSelect("evaluation.teeth", "teeth");
+    const query = this.evaluationRepository
+      .createQueryBuilder("evaluation")
+      .leftJoinAndSelect("evaluation.animal", "animal")
+      .leftJoinAndSelect("evaluation.mediaFiles", "media")
+      .leftJoinAndSelect("evaluation.evaluator", "evaluator")
+      .leftJoinAndSelect("evaluation.teeth", "teeth");
+
     if (isId) query.where("animal.id = :id", { id: animalIdOrTag });
     else query.where("animal.tagCode = :tag", { tag: animalIdOrTag });
+
     return await query.orderBy("evaluation.evaluationDate", "DESC").getMany();
   }
 
+  // --- 8. DASHBOARD STATS ---
   async getDashboardStats() {
     const totalAnimals = await this.animalRepository.count();
     const totalEvaluations = await this.evaluationRepository.count();
-    const pendingEvaluations = await this.animalRepository.createQueryBuilder("animal").leftJoin("animal.dentalEvaluations", "evaluation").where("evaluation.id IS NULL").getCount();
-    const criticalStats = await this.evaluationRepository.createQueryBuilder("eval").innerJoin("eval.teeth", "tooth")
+
+    const pendingEvaluations = await this.animalRepository
+      .createQueryBuilder("animal")
+      .leftJoin("animal.dentalEvaluations", "evaluation")
+      .where("evaluation.id IS NULL")
+      .getCount();
+
+    const criticalStats = await this.evaluationRepository
+      .createQueryBuilder("eval")
+      .innerJoin("eval.teeth", "tooth")
       .where("tooth.fracture_level >= :level", { level: SeverityScale.SEVERE })
       .orWhere("tooth.pulpitis >= :level", { level: SeverityScale.SEVERE })
-      .orWhere("tooth.gingival_recession_level >= :level", { level: SeverityScale.SEVERE })
-      .orWhere("tooth.periodontal_lesions >= :level", { level: SeverityScale.SEVERE })
-      .orWhere("tooth.pulp_chamber_exposure > 0").select("COUNT(DISTINCT eval.id)", "count").getRawOne();
-    return { totalAnimals, totalEvaluations, pendingEvaluations, criticalCases: parseInt(criticalStats?.count || "0", 10) };
+      .orWhere("tooth.gingival_recession_level >= :level", {
+        level: SeverityScale.SEVERE,
+      })
+      .orWhere("tooth.periodontal_lesions >= :level", {
+        level: SeverityScale.SEVERE,
+      })
+      .orWhere("tooth.pulp_chamber_exposure > 0")
+      .select("COUNT(DISTINCT eval.id)", "count")
+      .getRawOne();
+
+    return {
+      totalAnimals,
+      totalEvaluations,
+      pendingEvaluations,
+      criticalCases: parseInt((criticalStats?.count as string) || "0", 10),
+    };
   }
 
-  async createDefaultHealthyTeeth(evaluation: DentalEvaluation) {
+  // --- 9. UPLOAD ANIMAL  ---
+  async createAnimalFromUpload(
+    code: string,
+    breed: string,
+    mediaPaths: string[],
+    details?: {
+      farm?: string;
+      client?: string;
+      location?: string;
+      collectionDate?: Date;
+      age?: number;
+      chip?: string;
+      sisbovNumber?: string;
+      currentWeight?: number;
+      lot?: string;
+      bodyScore?: number;
+      coatColor?: string;
+    },
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const animalPayload: DeepPartial<Animal> = {
+        tagCode: code,
+        breed: breed,
+        farm: details?.farm,
+        client: details?.client,
+        location: details?.location,
+        collectionDate: details?.collectionDate || new Date(),
+        age: details?.age || 24,
+        chip: details?.chip,
+        sisbovNumber: details?.sisbovNumber,
+        currentWeight: details?.currentWeight,
+        lot: details?.lot,
+        bodyScore: details?.bodyScore,
+        coatColor: details?.coatColor,
+        status: "Ativo", // Padrão se não vier
+      };
+
+      const newAnimal = this.animalRepository.create(animalPayload);
+      const savedAnimal = await queryRunner.manager.save(newAnimal);
+
+      for (const [index, path] of mediaPaths.entries()) {
+        const mediaPayload: DeepPartial<Media> = {
+          s3UrlPath: path,
+          photoType: index === 0 ? PhotoType.FRONTAL : PhotoType.LATERAL_LEFT,
+          animal: savedAnimal,
+        };
+        const newMedia = this.mediaRepository.create(mediaPayload);
+        await queryRunner.manager.save(newMedia);
+      }
+      await queryRunner.commitTransaction();
+      return savedAnimal;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  // --- 10. SEED (Simula API Externa) ---
+  async seed() {
+    const farms = [
+      "Faz. Animaltools",
+      "Fazenda Santa Fé",
+      "Agropecuária Boi Gordo",
+    ];
+    const lots = ["Baia 12", "Piquet 4", "Confinamento A", "Lote Engorda 03"];
+    const breeds = ["Nelore", "Angus", "Brahman", "Senepol"];
+    const coatColors = ["Branca", "Preta", "Vermelha", "Mestiça"];
+
+    for (let i = 0; i < 3; i++) {
+      const randomNum = Math.floor(Math.random() * 9000) + 1000;
+      const tag = `${randomNum}${Math.random() > 0.5 ? "G" : "F"}`;
+
+      const breed = breeds[Math.floor(Math.random() * breeds.length)];
+      const farm = farms[Math.floor(Math.random() * farms.length)];
+      const lot = lots[Math.floor(Math.random() * lots.length)];
+      const color = coatColors[Math.floor(Math.random() * coatColors.length)];
+
+      const weight = 200 + Math.floor(Math.random() * 400);
+      const score = (Math.random() * (5 - 1) + 1).toFixed(1);
+
+      const chip = Math.floor(Math.random() * 1000000000000000).toString();
+      const sisbov = Math.floor(Math.random() * 1000000000000000).toString();
+
+      await this.createAnimalFromUpload(
+        tag,
+        breed,
+        [
+          "https://img.freepik.com/fotos-gratis/vacas-no-curral-da-fazenda-de-carne_181624-52327.jpg",
+        ],
+        {
+          farm: farm,
+          client: "Cliente API Teste",
+          location: lot.split(" ")[0],
+          lot: lot,
+          collectionDate: new Date(),
+          age: 18 + Math.floor(Math.random() * 36),
+          chip: chip,
+          sisbovNumber: sisbov,
+          currentWeight: weight + 0.5,
+          bodyScore: Number(score),
+          coatColor: color,
+        },
+      );
+    }
+
+    return {
+      message: `✅ Seed executado: 3 animais realistas criados com sucesso!`,
+    };
+  }
+
+  private async createDefaultHealthyTeeth(evaluation: DentalEvaluation) {
     const teethCodes = Object.values(ToothCode);
-    const teethEntities = teethCodes.map((code) => this.toothRepository.create({ evaluation, toothCode: code, toothType: ToothType.DECIDUOUS, fractureLevel: SeverityScale.NONE, isPresent: true }));
+    const teethEntities = teethCodes.map((code) =>
+      this.toothRepository.create({
+        evaluation,
+        toothCode: code,
+        toothType: ToothType.DECIDUOUS,
+        fractureLevel: SeverityScale.NONE,
+        isPresent: true,
+      }),
+    );
     await this.toothRepository.save(teethEntities);
   }
 
-  // --- RELATÓRIOS ---
-  async getReportStats(filterFarm?: string, filterClient?: string, startDate?: string, endDate?: string) {
-    // ... (Mantém a lógica do relatório igual, apenas tipagem e imports ajustados)
-    // O código de relatório é longo, mas está correto no que você enviou.
-    // O importante é que ele use o @lib/data também.
-    // (Resumindo aqui para não ficar gigante, use a lógica do seu arquivo original se for muito específica, mas corrija os imports no topo)
-    return { general: {}, chronology: {}, pathologies: {}, criticalAnimals: [] }; // Placeholder se não usar, ou copie a lógica completa do arquivo anterior.
+  // --- 11. RELATÓRIOS (COM CRONOLOGIA CORRIGIDA) ---
+  async getReportStats(
+    filterFarm?: string,
+    filterClient?: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const baseQuery = this.evaluationRepository
+      .createQueryBuilder("evaluation")
+      .leftJoin("evaluation.animal", "animal")
+      .leftJoin("evaluation.teeth", "tooth");
+
+    if (filterFarm && filterFarm !== "all")
+      baseQuery.andWhere("animal.farm ILIKE :farm", {
+        farm: `%${filterFarm}%`,
+      });
+    if (filterClient && filterClient !== "all")
+      baseQuery.andWhere("animal.client ILIKE :client", {
+        client: `%${filterClient}%`,
+      });
+
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setUTCHours(23, 59, 59, 999);
+      baseQuery.andWhere("evaluation.evaluationDate BETWEEN :start AND :end", {
+        start,
+        end,
+      });
+    }
+
+    const classificationQuery = baseQuery.clone();
+    const evaluationsData = await classificationQuery
+      .select([
+        "evaluation.id",
+        "MAX(tooth.fracture_level) as max_fracture",
+        "MAX(tooth.pulpitis) as max_pulpitis",
+        "MAX(tooth.gingival_recession_level) as max_recession",
+        "MAX(tooth.crown_reduction_level) as max_crown",
+        "MAX(tooth.dental_calculus) as max_calculus",
+        "MAX(tooth.periodontal_lesions) as max_periodontal",
+        "MAX(tooth.lingual_wear) as max_lingual",
+        "MAX(tooth.caries) as max_caries",
+        "MAX(tooth.vitrified_border) as max_vitrified",
+        "MAX(tooth.pulp_chamber_exposure) as max_exposure",
+        "MAX(tooth.gingivitis_edema) as max_edema",
+        // CORREÇÃO: Adicionado ::text após tooth_code
+        "COUNT(CASE WHEN tooth.tooth_code::text LIKE 'I%' AND tooth.tooth_type = 'PERMANENT' THEN 1 END) as permanent_incisors",
+      ])
+      .groupBy("evaluation.id")
+      .getRawMany();
+
+    let healthy = 0,
+      moderate = 0,
+      critical = 0;
+
+    const chronologyStats = {
+      dl: 0,
+      "2d": 0,
+      "4d": 0,
+      "6d": 0,
+      "8d": 0,
+    };
+
+    evaluationsData.forEach((ev) => {
+      const permCount = Number(ev.permanent_incisors || 0);
+      const stage = this.calculateChronology(permCount).toLowerCase();
+      if (chronologyStats[stage] !== undefined) {
+        chronologyStats[stage]++;
+      }
+
+      const fracture = Number(ev.max_fracture || 0);
+      const pulpitis = Number(ev.max_pulpitis || 0);
+      const recession = Number(ev.max_recession || 0);
+      const exposure = Number(ev.max_exposure || 0);
+      const periodontal = Number(ev.max_periodontal || 0);
+      const caries = Number(ev.max_caries || 0);
+
+      const SEVERE_THRESHOLD = 2;
+      const RECESSION_SEVERE_THRESHOLD = 2;
+      const PERIODONTAL_SEVERE_THRESHOLD = 2;
+
+      if (
+        fracture >= SEVERE_THRESHOLD ||
+        pulpitis >= SEVERE_THRESHOLD ||
+        recession >= RECESSION_SEVERE_THRESHOLD ||
+        exposure > 0 ||
+        periodontal >= PERIODONTAL_SEVERE_THRESHOLD
+      ) {
+        critical++;
+      } else {
+        const values = [
+          fracture,
+          pulpitis,
+          recession,
+          Number(ev.max_crown || 0),
+          Number(ev.max_calculus || 0),
+          periodontal,
+          Number(ev.max_lingual || 0),
+          caries,
+          Number(ev.max_vitrified || 0),
+          exposure,
+          Number(ev.max_edema || 0),
+        ];
+
+        if (values.some((v) => v >= 1)) moderate++;
+        else healthy++;
+      }
+    });
+
+    const total = evaluationsData.length;
+    const statsQuery = baseQuery.clone();
+
+    const stats = await statsQuery
+      .select([
+        "COUNT(DISTINCT CASE WHEN tooth.fracture_level > 0 THEN evaluation.id END) as fractures",
+        "COUNT(DISTINCT CASE WHEN tooth.pulpitis > 0 THEN evaluation.id END) as pulpitis",
+        "COUNT(DISTINCT CASE WHEN tooth.gingival_recession_level > 0 THEN evaluation.id END) as recession",
+        "COUNT(DISTINCT CASE WHEN tooth.crown_reduction_level > 0 THEN evaluation.id END) as crown_reduction",
+        "COUNT(DISTINCT CASE WHEN tooth.dental_calculus > 0 THEN evaluation.id END) as calculus",
+        "COUNT(DISTINCT CASE WHEN tooth.periodontal_lesions > 0 THEN evaluation.id END) as periodontal",
+        "COUNT(DISTINCT CASE WHEN tooth.lingual_wear > 0 THEN evaluation.id END) as lingual_wear",
+        "COUNT(DISTINCT CASE WHEN tooth.caries > 0 THEN evaluation.id END) as caries",
+        "COUNT(DISTINCT CASE WHEN tooth.vitrified_border > 0 THEN evaluation.id END) as vitrified_border",
+        "COUNT(DISTINCT CASE WHEN tooth.pulp_chamber_exposure > 0 THEN evaluation.id END) as pulp_exposure",
+        "COUNT(DISTINCT CASE WHEN tooth.gingivitis_edema > 0 THEN evaluation.id END) as gingivitis_edema",
+      ])
+      .getRawOne();
+
+    const safeStats = (stats as Record<string, number>) || {};
+    const totalLesions = Object.values(safeStats as Record<string, unknown>).reduce(
+      (acc: number, val) => acc + Number(val || 0),
+      0,
+    ) as number;
+
+    const criticalAnimalsQuery = this.evaluationRepository
+      .createQueryBuilder("evaluation")
+      .leftJoinAndSelect("evaluation.animal", "animal")
+      .leftJoinAndSelect("evaluation.teeth", "tooth")
+      .where("1=1");
+
+    if (filterFarm && filterFarm !== "all")
+      criticalAnimalsQuery.andWhere("animal.farm ILIKE :farm", {
+        farm: `%${filterFarm}%`,
+      });
+    if (filterClient && filterClient !== "all")
+      criticalAnimalsQuery.andWhere("animal.client ILIKE :client", {
+        client: `%${filterClient}%`,
+      });
+
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setUTCHours(23, 59, 59, 999);
+      criticalAnimalsQuery.andWhere(
+        "evaluation.evaluationDate BETWEEN :start AND :end",
+        { start, end },
+      );
+    }
+
+    criticalAnimalsQuery.andWhere(
+      "(tooth.fracture_level >= 2 OR tooth.pulpitis >= 2 OR tooth.gingival_recession_level >= 2 OR tooth.pulp_chamber_exposure > 0 OR tooth.periodontal_lesions >= 2)",
+    );
+
+    const topCritical = await criticalAnimalsQuery
+      .orderBy("tooth.fractureLevel", "DESC")
+      .addOrderBy("tooth.pulpitis", "DESC")
+      .addOrderBy("tooth.pulpChamberExposure", "DESC")
+      .take(5)
+      .getMany();
+
+    const criticalList = topCritical.map((ev) => {
+      const badTooth = ev.teeth.find(
+        (t) =>
+          (t.fractureLevel as number) >= 2 ||
+          (t.pulpitis as number) >= 2 ||
+          (t.pulpChamberExposure as number) > 0 ||
+          (t.periodontalLesions as number) >= 2,
+      );
+
+      let mainIssue = "Patologia Diversa";
+      if (badTooth) {
+        if ((badTooth.fractureLevel as number) >= 2)
+          mainIssue = `Fratura Grau ${badTooth.fractureLevel} (Dente ${badTooth.toothCode})`;
+        else if ((badTooth.pulpitis as number) >= 2)
+          mainIssue = `Pulpite Grau ${badTooth.pulpitis} (Dente ${badTooth.toothCode})`;
+        else if ((badTooth.pulpChamberExposure as number) > 0)
+          mainIssue = `Exp. Câmara Pulpar (Dente ${badTooth.toothCode})`;
+        else if ((badTooth.periodontalLesions as number) >= 2)
+          mainIssue = `Lesão Periodontal G${badTooth.periodontalLesions}`;
+      }
+
+      return {
+        id: ev.animal.id,
+        tag: ev.animal.tagCode,
+        farm: ev.animal.farm,
+        location: ev.animal.location || "N/I",
+        diagnosis: mainIssue,
+        date: ev.evaluationDate,
+      };
+    });
+
+    return {
+      general: {
+        total,
+        healthy,
+        moderate,
+        critical,
+        totalLesions,
+        healthyPercentage: total ? ((healthy / total) * 100).toFixed(1) : "0.0",
+        moderatePercentage: total
+          ? ((moderate / total) * 100).toFixed(1)
+          : "0.0",
+        criticalPercentage: total
+          ? ((critical / total) * 100).toFixed(1)
+          : "0.0",
+      },
+      chronology: {
+        dl: { label: "Dente de Leite", count: chronologyStats.dl, key: "dl" },
+        "2d": { label: "2 Dentes", count: chronologyStats["2d"], key: "2d" },
+        "4d": { label: "4 Dentes", count: chronologyStats["4d"], key: "4d" },
+        "6d": { label: "6 Dentes", count: chronologyStats["6d"], key: "6d" },
+        "8d": { label: "Boca Cheia", count: chronologyStats["8d"], key: "8d" },
+      },
+      pathologies: {
+        fraturas: {
+          label: "Fraturas",
+          count: Number(safeStats.fractures || 0),
+          key: "fracture",
+        },
+        pulpite: {
+          label: "Pulpite",
+          count: Number(safeStats.pulpitis || 0),
+          key: "pulpitis",
+        },
+        recessao: {
+          label: "Recessão Gengival",
+          count: Number(safeStats.recession || 0),
+          key: "recession",
+        },
+        reducao: {
+          label: "Redução de Coroa",
+          count: Number(safeStats.crown_reduction || 0),
+          key: "crown",
+        },
+        calculo: {
+          label: "Cálculo Dentário",
+          count: Number(safeStats.calculus || 0),
+          key: "calculus",
+        },
+        periodontal: {
+          label: "Lesões Periodontais",
+          count: Number(safeStats.periodontal || 0),
+          key: "periodontal",
+        },
+        desgaste: {
+          label: "Desgaste Lingual",
+          count: Number(safeStats.lingual_wear || 0),
+          key: "lingual",
+        },
+        carie: {
+          label: "Cáries",
+          count: Number(safeStats.caries || 0),
+          key: "caries",
+        },
+        vitrificado: {
+          label: "Bordo Vitrificado",
+          count: Number(safeStats.vitrified_border || 0),
+          key: "vitrified",
+        },
+        exposicao: {
+          label: "Exp. Câmara Pulpar",
+          count: Number(safeStats.pulp_exposure || 0),
+          key: "exposure",
+        },
+        edema: {
+          label: "Edema Gengival",
+          count: Number(safeStats.gingivitis_edema || 0),
+          key: "edema",
+        },
+      },
+      criticalAnimals: criticalList,
+    };
   }
-  
-  // (Adicione o seed e createAnimalFromUpload se precisar, igual ao original)
 }
