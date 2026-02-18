@@ -140,6 +140,8 @@ export class AnimalService {
 
         const savedAnimal = await queryRunner.manager.save(animal);
 
+        
+
         // --- TRATAMENTO DE FOTOS ---
         let photosArray: any[] = [];
         if (data.fotos) {
@@ -319,7 +321,6 @@ export class AnimalService {
     };
   }
 
-  // CORREÇÃO: Removemos o argumento 'user' que não estava sendo usado
   async update(id: number, updateAnimalDto: UpdateAnimalDto) {
     const animal = await this.animalRepository.findOne({ where: { id } });
     if (!animal) throw new NotFoundException(`Animal com ID ${id} não encontrado.`);
@@ -329,7 +330,6 @@ export class AnimalService {
     return this.findOne(id);
   }
 
-  // CORREÇÃO: Removemos o argumento 'user'
   async remove(id: number) {
     const animalEntity = await this.animalRepository.findOneBy({ id });
     if (!animalEntity) {
@@ -341,23 +341,21 @@ export class AnimalService {
     return animalEntity;
   }
 
-  // CORREÇÃO: Usamos o Generic <FarmResult> para tipar o retorno
   async findUniqueFarms(): Promise<string[]> {
     return this.animalRepository.createQueryBuilder('animal')
       .select('DISTINCT animal.farm', 'farm')
       .where('animal.farm IS NOT NULL')
       .orderBy('animal.farm', 'ASC')
-      .getRawMany<FarmResult>() // Tipagem explícita aqui
+      .getRawMany<FarmResult>() 
       .then(res => res.map(f => f.farm));
   }
 
-  // CORREÇÃO: Usamos o Generic <ClientResult> para tipar o retorno
   async findUniqueClients(): Promise<string[]> {
     return this.animalRepository.createQueryBuilder('animal')
       .select('DISTINCT animal.client', 'client')
       .where("animal.client IS NOT NULL AND animal.client != ''")
       .orderBy('animal.client', 'ASC')
-      .getRawMany<ClientResult>() // Tipagem explícita aqui
+      .getRawMany<ClientResult>() 
       .then(res => res.map(c => c.client));
   }
 
@@ -387,4 +385,15 @@ export class AnimalService {
 
       return `https://${this.bucketName}.s3.amazonaws.com/${fileName}`;
   }
+
+  // --- MÉTODO NOVO PARA PESQUISA ---
+  async findAllForResearch() {
+    return this.animalRepository.createQueryBuilder('animal')
+      .innerJoinAndSelect('animal.dentalEvaluations', 'dentalEvaluations')
+      .leftJoinAndSelect('dentalEvaluations.teeth', 'teeth')
+      .orderBy('animal.createdAt', 'DESC')
+      .getMany();
+  }
+   
+
 }

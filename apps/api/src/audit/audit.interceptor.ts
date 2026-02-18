@@ -1,4 +1,3 @@
-
 import {
   CallHandler,
   ExecutionContext,
@@ -9,6 +8,7 @@ import {
 import { Observable } from "rxjs";
 import { tap } from "rxjs/operators";
 import { AuditService } from "./audit.service";
+import { User } from "@lib/data/entities/user.entity";
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
@@ -26,75 +26,86 @@ export class AuditInterceptor implements NestInterceptor {
     }
 
     return next.handle().pipe(
-      tap(async (data) => {
+      tap((data) => {
         try {
           // --- 1. Tenta descobrir o ID da entidade ---
-          let entityId = params.id
+          const rawId = params.id
             ? params.id
             : data && data.id
               ? data.id
               : "N/A";
 
-          // --- 2. Define o Nome da Entidade  ---
-          const cleanUrl = url.split("?")[0]; // Remove query params
-          const urlParts = cleanUrl.split("/").filter((p: string) => p !== ""); // Remove strings vazias
+          // Garante que entityId é string desde o início
+          let entityId = String(rawId);
 
-          // Se a URL começar com 'api', pegamos o próximo segmento (ex: /api/animals -> animals)
+          // --- 2. Define o Nome da Entidade  ---
+          const cleanUrl = url.split("?")[0];
+          const urlParts = cleanUrl.split("/").filter((p: string) => p !== "");
+
           let mainResource = urlParts[0] === "api" ? urlParts[1] : urlParts[0];
 
           if (!mainResource) mainResource = "System";
 
-          // Capitaliza a primeira letra (ex: animals -> Animal)
-          let entityName =
+          let entityNameStr =
             mainResource.charAt(0).toUpperCase() + mainResource.slice(1);
-          // Remove o 's' final para ficar no singular (ex: Animals -> Animal), lógica básica
-          if (entityName.endsWith("s")) entityName = entityName.slice(0, -1);
+
+          if (entityNameStr.endsWith("s"))
+            entityNameStr = entityNameStr.slice(0, -1);
+
+          // Aqui entityNameStr já é string, não precisamos de String()
+          const entityName = entityNameStr;
 
           // --- 3. Define a Ação  ---
           let action = "UNKNOWN";
 
-          // Mapeamento Padrão
           if (method === "POST") action = "CREATE";
           if (method === "PUT" || method === "PATCH") action = "UPDATE";
           if (method === "DELETE") action = "DELETE";
 
-          // --- 4. OVERRIDES (Regras Específicas) ---
-
+          // --- 4. OVERRIDES ---
           if (
             cleanUrl.includes("/auth/signin") ||
             cleanUrl.includes("/login")
           ) {
             action = "LOGIN";
-            entityName = "Auth";
-            entityId = data?.user?.id || user?.id || "N/A"; // Tenta pegar o ID do user logado
           } else if (
             cleanUrl.includes("/auth/signup") ||
             cleanUrl.includes("/register")
           ) {
             action = "REGISTER";
-            entityName = "Auth";
           }
 
-          // Formata a ação final (ex: CREATE_ANIMAL, LOGIN, DELETE_EVALUATION)
-          // Se for LOGIN, mantemos só LOGIN. Se for CRUD, juntamos com a entidade.
+          // Define o nome final
+          const finalEntityName =
+            action === "LOGIN" || action === "REGISTER" ? "Auth" : entityName;
+
+          // Se for Login, o ID é o do user logado
+          if (action === "LOGIN") {
+            // Aqui usamos String() porque data.user.id pode ser número ou indefinido
+            entityId = String(data?.user?.id || user?.id || "N/A");
+          }
+
           const finalAction =
             action === "LOGIN" || action === "REGISTER"
               ? action
-              : `${action}_${entityName.toUpperCase()}`;
+              : `${action}_${finalEntityName.toUpperCase()}`;
 
-          // Prepara os detalhes
           const details = `Method: ${method} | Path: ${cleanUrl}`;
 
-          // Grava o log
-          await this.auditService.log(
-            finalAction,
-            entityName,
-            entityId,
-            user,
-            details,
-          );
-        } catch (err) {
-          this.logger.error("Erro ao salvar log automático", err);
+          // --- 5. Grava o log ---
+          this.auditService
+            .log(
+              finalAction,
+              finalEntityName, 
+              entityId,        
+              user as User,    
+              details
+            )
+            .catch((err) => {
+              this.logger.error("Erro ao salvar log automático", err);
+            });
+        } catch (errSync) {
+          this.logger.error("Erro ao preparar dados do log", errSync);
         }
       }),
     );

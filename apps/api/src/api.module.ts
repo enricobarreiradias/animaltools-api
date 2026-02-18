@@ -3,18 +3,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { APP_INTERCEPTOR } from '@nestjs/core'; 
+import { AuditInterceptor } from './audit/audit.interceptor'; 
 
-// --- Módulos Originais da API ---
 import { DentalEvaluationModule } from './dental-evaluation/dental-evaluation.module';
 import { UserModule } from './user/user.module';
 
-// --- SEUS Módulos (Migrados do Admin) ---
 import { AnimalModule } from './animal/animal.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 
-// --- Configuração Compartilhada (A que consertamos!) ---
 import { animaltoolsTypeOrmConfig } from '@lib/config/typeorm';
 
 @Module({
@@ -35,7 +34,7 @@ import { animaltoolsTypeOrmConfig } from '@lib/config/typeorm';
       serveRoot: '/uploads',
     }),
 
-    // 4. Módulos de Funcionalidade (Todos juntos agora!)
+    // 4. Módulos de Funcionalidade
     AuthModule,
     UserModule,
     AnimalModule,
@@ -44,6 +43,11 @@ import { animaltoolsTypeOrmConfig } from '@lib/config/typeorm';
     AuditModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
+    },
+  ],
 })
 export class ApiModule {}

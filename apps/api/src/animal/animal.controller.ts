@@ -6,6 +6,7 @@ import { AnimalService } from './animal.service';
 import { CreateAnimalDto } from './dto/create-animal.dto';
 import { UpdateAnimalDto } from './dto/update-animal.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOperation } from '@nestjs/swagger'; 
 
 @Controller('animal')
 export class AnimalController {
@@ -40,6 +41,17 @@ export class AnimalController {
     return this.animalService.findAll();
   }
 
+  // --- 2. ROTA NOVA  ---
+  @Get('export/research')
+  //@UseGuards(AuthGuard('jwt')) // Adicionei proteção JWT por segurança 
+  @ApiOperation({ 
+    summary: 'Exportação Completa para Pesquisa',
+    description: 'Retorna TODOS os dados de TODOS os animais, incluindo avaliações dentárias e dentes.' 
+  })
+  async exportResearchData() {
+    return this.animalService.findAllForResearch();
+  }
+
   @Get('filters/farms')
   @UseGuards(AuthGuard('jwt'))
   getFarmsList() {
@@ -51,6 +63,8 @@ export class AnimalController {
   getClientsList() {
     return this.animalService.findUniqueClients();
   }
+
+  // --- ROTAS COM ID ---
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))

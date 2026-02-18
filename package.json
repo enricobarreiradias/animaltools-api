@@ -15,7 +15,7 @@
     "build:api": "yarn prebuild && nest build api",
     "build:external-api": "yarn prebuild && nest build external-api",
     "set-dev-env-variables": "cross-env NODE_ENV=development ENABLE_DEV_ENV=1 ENABLE_DEBUG=1",
-    "set-dev-aws-env-variables": "NODE_OPTIONS=--openssl-legacy-provider NODE_ENV=development-aws ENABLE_DEV_ENV=1",
+    "set-dev-aws-env-variables": "cross-env NODE_OPTIONS=--openssl-legacy-provider NODE_ENV=development-aws ENABLE_DEV_ENV=1",
     "set-dev-aws-env-variables-windows": "cross-env NODE_ENV=development-aws cross-env ENABLE_DEV_ENV=1",
     "set-prod-aws-env-variables": "NODE_ENV=production",
     "start": "node dist/main.js",
