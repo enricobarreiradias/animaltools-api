@@ -30,6 +30,6 @@ export const animaltoolsTypeOrmConfig: TypeOrmModuleOptions = {
   database: process.env.DB_NAME || animaltoolsDbConfig.database,
 
   entities: [...animaltoolsEntities],
-  synchronize: false,
+  synchronize: false, // Use com cuidado em produção
   logging: process.env.ENABLE_DEV_ENV === '1' ? ['query', 'error'] : false,
 };

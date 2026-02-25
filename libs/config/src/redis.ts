@@ -7,6 +7,6 @@ const redisConfig: {
   password: string
   port: number
   tls: boolean
-} = redisConfigFile
+} = redisConfigFile as { host: string; password: string; port: number; tls: boolean }
 
 export default redisConfig

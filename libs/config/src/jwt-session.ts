@@ -6,6 +6,6 @@ const jwtSessionConfig: {
   secret: string
   expiresIn: number
   timeUnity: string
-} = jwtJsonConfig
+} = jwtJsonConfig as { secret: string; expiresIn: number; timeUnity: string }
 
 export default jwtSessionConfig

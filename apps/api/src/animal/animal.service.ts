@@ -14,9 +14,11 @@ import { AuditService } from '../audit/audit.service';
 interface FarmResult {
   farm: string;
 }
-
 interface ClientResult {
   client: string;
+}
+interface LotResult {
+    lot: string;
 }
 
 @Injectable()
@@ -94,7 +96,8 @@ export class AnimalService {
             externalCoatId: data['pelagem_id'],
             coatColor: data['nome_pelagem_id'],
             currentWeight: data['peso_atual'] ? Number(data['peso_atual']) : 0,
-            bodyScore: data['score'] ? Number(data['score']) : 0,
+            bodyScore: data['score_in'] != null ? Number(data['score_in']) : null,
+            bodyScoreOut: data['score_out'] != null ? Number(data['score_out']) : null,
             
             externalCostCenterId: data['centro_de_custo_id'],
             farm: data['nome_centro_de_custo_id'],
@@ -181,36 +184,54 @@ export class AnimalService {
             for (const [index, foto] of photosArray.entries()) {
                 const link = foto['link_do_driver'];
                 
-                const existingMedia = await this.mediaRepository.findOne({ 
-                    where: { s3UrlPath: link, animal: { id: savedAnimal.id } } 
+                // 1. Procuramos pela imagem usando o link original (e não o s3UrlPath)
+                let existingMedia = await this.mediaRepository.findOne({ 
+                    where: { originalDriveUrl: link, animal: { id: savedAnimal.id } } 
                 });
 
+                // Se não existir na base de dados (só procurava por s3UrlPath antes)
                 if (!existingMedia) {
+                     existingMedia = await this.mediaRepository.findOne({ 
+                        where: { s3UrlPath: link, animal: { id: savedAnimal.id } } 
+                    });
+                }
+
+                // 2. Verificamos se precisamos de fazer o upload para o S3.
+                // Fazemos o upload se a imagem for NOVA ou se o link guardado AINDA FOR do Google Drive (tentativa falhada anterior)
+                const needsS3Upload = !existingMedia || (existingMedia.s3UrlPath && existingMedia.s3UrlPath.includes('drive.google.com'));
+
+                if (needsS3Upload) {
                     let finalUrl = link;
 
                     if (link.includes('drive.google.com')) {
                         try {
+                             this.logger.log(`⏳ Tentando migrar imagem para S3 (Animal ${savedAnimal.tagCode})...`);
                              const s3Url = await this.processDriveImageToS3(link, savedAnimal.tagCode, index);
                              
                              if (s3Url) {
                                 finalUrl = s3Url;
-                                this.logger.log(`Imagem migrada para S3: ${finalUrl}`);
+                                this.logger.log(`✅ Imagem migrada com sucesso para S3: ${finalUrl}`);
                              }
                         } catch (e) {
-                            this.logger.warn(`Upload S3 pendente (usando link original): ${e.message}`);
+                            this.logger.error(`❌ Erro real ao subir para S3: ${e.message}`, e.stack);
                         }
                     }
 
-                    const newMedia = this.mediaRepository.create({
-                        animal: savedAnimal,
-                        s3UrlPath: finalUrl, 
-                        originalDriveUrl: link,
-                        latitude: foto['latitude'] || foto['latitude_latitude'],
-                        longitude: foto['longitude'] || foto['latitude_longitude'],
-                        photoType: index === 0 ? PhotoType.FRONTAL : PhotoType.LATERAL_LEFT,
-                    });
-                    
-                    await queryRunner.manager.save(newMedia);
+                    // Se for novo, criamos. Se já existir, apenas atualizamos o s3UrlPath!
+                    if (!existingMedia) {
+                        const newMedia = this.mediaRepository.create({
+                            animal: savedAnimal,
+                            s3UrlPath: finalUrl, 
+                            originalDriveUrl: link,
+                            latitude: foto['latitude'] || foto['latitude_latitude'],
+                            longitude: foto['longitude'] || foto['latitude_longitude'],
+                            photoType: index === 0 ? PhotoType.FRONTAL : PhotoType.LATERAL_LEFT,
+                        });
+                        await queryRunner.manager.save(newMedia);
+                    } else {
+                        existingMedia.s3UrlPath = finalUrl;
+                        await queryRunner.manager.save(existingMedia);
+                    }
                 }
             }
         }
@@ -382,6 +403,15 @@ export class AnimalService {
       .orderBy('animal.client', 'ASC')
       .getRawMany<ClientResult>() 
       .then(res => res.map(c => c.client));
+  }
+
+  async findUniqueLots(): Promise<string[]> {
+    return this.animalRepository.createQueryBuilder('animal')
+      .select('DISTINCT animal.lot', 'lot')
+      .where("animal.lot IS NOT NULL AND animal.lot != ''")
+      .orderBy('animal.lot', 'ASC')
+      .getRawMany<LotResult>() 
+      .then(res => res.map(l => l.lot));
   }
 
   // --- S3 HELPER ---

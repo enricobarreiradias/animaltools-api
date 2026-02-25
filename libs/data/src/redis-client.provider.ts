@@ -13,6 +13,6 @@ export const redisClientProvider = {
     })
 
     await client.connect()
-    return client as any // <-- resolve o problema
+    return client 
   }
 }

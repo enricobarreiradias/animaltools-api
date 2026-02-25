@@ -5,6 +5,6 @@ const jwtJsonConfig = config.get('jwt')
 const jwtConfig: {
   secret: string
   expiresIn: number
-} = jwtJsonConfig
+} = jwtJsonConfig as { secret: string; expiresIn: number }
 
 export default jwtConfig

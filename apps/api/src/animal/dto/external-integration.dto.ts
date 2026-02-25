@@ -89,10 +89,15 @@ export class ExternalAnimalDto {
   @IsOptional()
   weight?: number;
 
-  @Expose({ name: 'score' })
+  @Expose({ name: 'score_in' })
   @IsNumber()
   @IsOptional()
-  score?: number;
+  scoreIn?: number;
+
+  @Expose({ name: 'score_out' })
+  @IsNumber()
+  @IsOptional()
+  scoreOut?: number;
 
   @Expose({ name: 'nome_centro_de_custo_id' })
   @IsString()

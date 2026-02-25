@@ -49,8 +49,13 @@ export class Animal {
   @Column({ name: 'collection_date', type: 'timestamp', nullable: true })
   collectionDate: Date | null;
 
+  // O bodyScore atual vai passar a receber o score_in
   @Column({ type: 'float', nullable: true, name: 'body_score' })
   bodyScore: number | null; 
+
+  // NOVO CAMPO: Para guardar o score_out
+  @Column({ type: 'float', nullable: true, name: 'body_score_out' })
+  bodyScoreOut: number | null; 
 
   @Column({ type: 'varchar', nullable: true, name: 'coat_color' })
   coatColor: string | null; 

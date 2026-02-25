@@ -64,6 +64,11 @@ export class AnimalController {
     return this.animalService.findUniqueClients();
   }
 
+  @Get('filters/lots')
+  @UseGuards(AuthGuard('jwt'))
+  getLotsList() {
+    return this.animalService.findUniqueLots();
+  }
   // --- ROTAS COM ID ---
 
   @Get(':id')

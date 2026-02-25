@@ -7,12 +7,12 @@ import { RepositoryModule } from '@lib/data/repos/repository.module';
 import { AwsS3Module } from '@lib/aws-s3/aws-s3.module';
 
 @Module({
-  imports: [
-    RepositoryModule, //Permite acesso às 4 entidades 
-    AwsS3Module,      //Permite injetar o AwsS3Service
-  ],
-  controllers: [DentalEvaluationController],
-  providers: [DentalEvaluationService],
-  exports: [DentalEvaluationService],
+ imports: [
+ RepositoryModule, //Permite acesso às 4 entidades 
+  AwsS3Module, //Permite injetar o AwsS3Service
+ ],
+ controllers: [DentalEvaluationController],
+ providers: [DentalEvaluationService],
+ exports: [DentalEvaluationService],
 })
 export class DentalEvaluationModule {}

@@ -12,9 +12,8 @@ import {
 import { Type, Transform } from 'class-transformer';
 import { ToothType } from './create-evaluation.dto';
 
-/** DTO for updating a single tooth: only toothCode is required (to identify the tooth). */
 export class UpdateToothEvaluationDto {
-  @Transform(({ value }) => (value == null ? value : String(value)))
+  @Transform(({ value }): string => (value == null ? value : String(value)))
   @IsString()
   toothCode: string;
 
@@ -23,7 +22,7 @@ export class UpdateToothEvaluationDto {
   @Type(() => Number)
   id?: number;
 
-  @Transform(({ value }) =>
+  @Transform(({ value }): boolean => 
     value === true || value === "true"
       ? true
       : value === false || value === "false"
@@ -135,7 +134,6 @@ export class UpdateEvaluationDto {
   @IsOptional()
   notes?: string;
 
-  /** Alias some frontends send instead of notes */
   @IsString()
   @IsOptional()
   generalObservations?: string;
@@ -146,7 +144,6 @@ export class UpdateEvaluationDto {
   @IsOptional()
   teeth?: UpdateToothEvaluationDto[];
 
-  /** Allowed so request body is not rejected; not used on update */
   @IsOptional()
   @IsString()
   animalId?: string;
