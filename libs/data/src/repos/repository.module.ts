@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
 //Ajusta o caminho
-import { User } from '../entities/animaltools/user.entity'; 
-import { Animal } from '../entities/animaltools/animal.entity'; 
-import { DentalEvaluation } from '../entities/animaltools/dental-evaluation.entity'; 
-import { Media } from '../entities/animaltools/media.entity'; 
+import { User } from '../entities/user.entity'; 
+import { Animal } from '../entities/animal.entity'; 
+import { DentalEvaluation } from '../entities/dental-evaluation.entity'; 
+import { Media } from '../entities/media.entity'; 
 
 const entities = [
     User,
@@ -20,7 +20,7 @@ const repos = [
 ]
 
 @Module({
-  imports: [...repos],
+ imports: [...repos],
   //Exporta os epositórios para que outros módulos possam usá-los
   exports: [...repos]
 })

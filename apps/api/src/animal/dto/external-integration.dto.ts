@@ -43,7 +43,7 @@ export class ExternalAnimalDto {
   @IsOptional()
   chip?: string;
 
-  @Expose({ name: 'n°_do_SISBOV' })
+  @Expose({ name: 'n_do_SISBOV' })
   @IsString()
   @IsOptional()
   sisbov?: string;

@@ -3,17 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, DeepPartial } from 'typeorm';
 import axios from 'axios';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import * as config from 'config'; // Usando a lib de configuração
-
+import * as config from 'config';
 import { CreateAnimalDto } from './dto/create-animal.dto';
 import { UpdateAnimalDto } from './dto/update-animal.dto';
 import { Animal } from '@lib/data/entities/animal.entity';
 import { Media } from '@lib/data/entities/media.entity'; 
 import { PhotoType } from '@lib/data/enums/dental-evaluation.enums'; 
 import { AuditService } from '../audit/audit.service';
-// Removemos a importação de 'User' pois não é mais usada
 
-// Interfaces auxiliares para tipar o retorno do banco (Remove o erro "Unsafe return")
 interface FarmResult {
   farm: string;
 }
@@ -79,6 +76,13 @@ export class AnimalService {
             }
         }
 
+        // --- 1. CÁLCULO DA IDADE AQUI ---
+        // Iniciamos como null. Se houver data de nascimento no JSON, calculamos os meses.
+        let animalAge: number | null = null;
+        if (data['data_de_nascimento']) {
+            animalAge = this.calculateAgeInMonths(data['data_de_nascimento']);
+        }
+
         const mappedData: DeepPartial<Animal> = {
             tagCode: tagCode, 
             chip: data['chip'],
@@ -99,8 +103,8 @@ export class AnimalService {
             externalLotId: data['lote_id'],
             lot: data['nome_lote_id'],
             
-            birthDate: data['data_de_nascimento'] ? new Date(data['data_de_nascimento']) : undefined,
-            status: data['status'] || 'Ativo',
+            birthDate: data['data_de_nascimento'] ? new Date(data['data_de_nascimento']) : null,
+            age: animalAge,            status: data['status'] || 'Ativo',
             
             collectionDate: entryDate, 
             entryDate: entryDate,
@@ -113,13 +117,14 @@ export class AnimalService {
         let animal: Animal | null = null;
         let actionType = 'CREATED'; 
 
-        // Upsert via SISBOV
+        // 1. Upsert via SISBOV
         if (mappedData.sisbovNumber) {
             animal = await queryRunner.manager.findOne(Animal, { 
                 where: { sisbovNumber: mappedData.sisbovNumber } 
             });
         }
-        // Upsert via CHIP
+        
+        // 2. Upsert via CHIP
         if (!animal && mappedData.chip) {
              animal = await queryRunner.manager.findOne(Animal, { 
                 where: { chip: mappedData.chip } 
@@ -128,6 +133,26 @@ export class AnimalService {
             if (animal) {
                 this.logger.warn(`Animal encontrado pelo CHIP (${mappedData.chip}) em vez do SISBOV.`);
             }
+        }
+
+        // 3. Upsert via Número do Animal (tagCode) 
+        if (!animal && mappedData.tagCode) {
+             animal = await queryRunner.manager.findOne(Animal, { 
+                where: { tagCode: mappedData.tagCode } 
+            });
+            
+            if (animal) {
+                this.logger.warn(`Animal encontrado pelo Número do Animal / TagCode (${mappedData.tagCode}).`);
+            }
+        }
+
+        // Validação final de ação (Atualizar ou Criar)
+        if (animal) {
+            Object.assign(animal, mappedData);
+            actionType = 'UPDATED'; 
+        } else {
+            animal = queryRunner.manager.create(Animal, mappedData);
+            actionType = 'CREATED'; 
         }
 
         if (animal) {
@@ -394,6 +419,15 @@ export class AnimalService {
       .orderBy('animal.createdAt', 'DESC')
       .getMany();
   }
-   
 
+  private calculateAgeInMonths(birthDateString: string): number {
+    const birthDate = new Date(birthDateString);
+    const today = new Date();
+    
+    const yearsDifference = today.getFullYear() - birthDate.getFullYear();
+    const monthsDifference = today.getMonth() - birthDate.getMonth();
+    
+    return (yearsDifference * 12) + monthsDifference;
+  }
+   
 }
